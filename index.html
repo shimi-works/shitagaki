@@ -101,6 +101,42 @@
   .thumb .tstyle{font-size:11.5px;color:var(--sub);margin-top:8px;border-top:1px dashed var(--line);padding-top:7px}
   .thumb [contenteditable]:focus{outline:none;background:var(--bg);border-radius:6px}
 
+  /* ボイロ: キャラ設定・注意・掛け合い */
+  .charwrap{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+  .charbox{flex:1;min-width:220px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:12px;padding:11px 12px}
+  .charbox .cr{font-size:11px;font-weight:800;color:var(--sub);margin-bottom:7px}
+  .charbox .cr b{color:var(--accent2)}
+  .charbox.b .cr b{color:var(--p-out)}
+  .charbox input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;
+    color:var(--ink);padding:8px 10px;font-size:13.5px;font-family:inherit;margin-bottom:7px}
+  .charbox input:last-child{margin-bottom:0}
+  .warnbar{background:#3a2a10;border:1px solid #6a4a18;color:#ffd98a;border-radius:11px;
+    padding:10px 13px;font-size:12.5px;line-height:1.6;margin:14px 0 2px}
+  .warnbar b{color:#ffe9b8}
+
+  .dline{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line)}
+  .dline:first-child{border-top:none}
+  .spk{flex:0 0 auto;font-size:11px;font-weight:800;padding:4px 9px;border-radius:999px;
+    white-space:nowrap;cursor:pointer;user-select:none;margin-top:1px}
+  .spk.a{background:var(--p-intro);color:#0c0f13}
+  .spk.b{background:var(--p-out);color:#0c0f13}
+  .dbody{flex:1;min-width:0}
+  .dtext{font-size:14px;line-height:1.65;background:var(--panel2);border:1px solid var(--line);
+    border-radius:9px;padding:8px 11px}
+  .dtext:focus{outline:none;border-color:var(--accent2);background:var(--bg)}
+  .dtelop{font-size:12px;line-height:1.5;color:var(--warn);background:var(--panel2);
+    border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:8px;
+    padding:5px 9px;margin-top:5px}
+  .dtelop:focus{outline:none;background:var(--bg)}
+  .dtelop:empty::before{content:"（テロップなし）";color:var(--sub);opacity:.6}
+  .dline .lx{flex:0 0 auto;background:transparent;border:none;color:var(--sub);font-size:13px;
+    padding:2px 4px;border-radius:6px;margin-top:1px}
+  .dline .lx:hover{background:var(--bg);color:var(--accent)}
+  .addline{width:100%;background:transparent;border:1px dashed var(--line);color:var(--sub);
+    border-radius:9px;padding:7px;font-size:12px;font-weight:700;margin-top:10px}
+  .addline:hover{border-color:var(--accent2);color:var(--ink)}
+
   .scene{background:var(--panel);border:1px solid var(--line);border-radius:14px;
     padding:0;margin-bottom:14px;overflow:hidden}
   .scene-head{display:flex;align-items:center;gap:10px;padding:11px 14px;
@@ -179,7 +215,8 @@
   <div class="card inputcard" id="inputcard">
     <div class="tabs">
       <button class="tab on" id="tabDesign" onclick="setMode('design')">✎ メモから設計</button>
-      <button class="tab" id="tabReverse" onclick="setMode('reverse')">📝 文字起こしから起こす</button>
+      <button class="tab" id="tabReverse" onclick="setMode('reverse')">📝 文字起こしから</button>
+      <button class="tab" id="tabVoro" onclick="setMode('voro')">🗣 ボイロ解説</button>
     </div>
 
     <!-- MODE: design -->
@@ -196,9 +233,31 @@
       <textarea id="transcript" style="min-height:150px" placeholder="例：はいどうも～今日は学食レビューです。まず1つ目がこのカツ丼で…（YouTubeの字幕やWhisper等の書き起こしを丸ごと貼る）"></textarea>
     </div>
 
+    <!-- MODE: voro -->
+    <div id="paneVoro" style="display:none">
+      <p class="lead">雑学・ニュース系の<b>ボイロ解説（ゆっくり/VOICEROID）</b>向けに、テーマから<b>2キャラの掛け合い台本</b>を生成します。読み上げにそのまま使えるセリフ全文＋テロップ付き。</p>
+      <label class="f">① テーマ・扱う内容</label>
+      <textarea id="voroTopic" placeholder="例：なぜ空は青いのか。雑学的に、身近な例えを交えて。／ 例：先週の○○のニュースをわかりやすく解説。"></textarea>
+      <label class="f">② ジャンル</label>
+      <div class="chips" id="genreChips"></div>
+      <label class="f">③ キャラ2人（名前・口調）</label>
+      <div class="charwrap">
+        <div class="charbox a">
+          <div class="cr"><b>解説役</b>（教える側）</div>
+          <input id="charTName" placeholder="名前（例：四国めたん）">
+          <input id="charTStyle" placeholder="口調（例：落ち着いた先生口調・丁寧）">
+        </div>
+        <div class="charbox b">
+          <div class="cr"><b>聞き手</b>（リアクション役）</div>
+          <input id="charSName" placeholder="名前（例：ずんだもん）">
+          <input id="charSStyle" placeholder="口調（例：素朴で相づち多め・語尾なのだ）">
+        </div>
+      </div>
+    </div>
+
     <div class="row">
       <div>
-        <label class="f">② プラットフォーム</label>
+        <label class="f">プラットフォーム</label>
         <div class="chips" id="platChips"></div>
       </div>
     </div>
@@ -253,6 +312,9 @@
       </div>
     </div>
 
+    <div class="warnbar" id="factWarn" style="display:none;margin-top:16px">
+      ⚠️ <b>この台本はAIが作った下書きです。</b>雑学・ニュースは正確性が命——<b>事実・数字・固有名詞・出典は必ず自分で裏取り</b>してから公開してください。読み間違えやすい語（数字・人名など）の読みも要確認。
+    </div>
     <div id="scenes" style="margin-top:16px"></div>
     <button class="addbtn" onclick="addScene()">＋ シーンを追加</button>
 
@@ -308,20 +370,23 @@ const LENS=[
   {k:30,label:"30秒"},{k:60,label:"1分"},{k:180,label:"3分"},{k:300,label:"5分"},{k:600,label:"10分"}
 ];
 const TONES=["元気・テンポ","落ち着き・丁寧","エモ・余韻","おもしろ・ネタ","かっこいい"];
+const GENRES=["雑学","ニュース"];
 
 let sel={plat:"yt",len:60,tone:"元気・テンポ"};
-let mode="design";      // "design" | "reverse"
+let mode="design";      // "design" | "reverse" | "voro"
 let hookOn=false;       // 1秒フック強化
+let voroGenre="雑学";   // 雑学 | ニュース
 
 function setMode(m){
   mode=m;
-  document.getElementById("tabDesign").classList.toggle("on",m==="design");
-  document.getElementById("tabReverse").classList.toggle("on",m==="reverse");
-  document.getElementById("paneDesign").style.display=m==="design"?"":"none";
-  document.getElementById("paneReverse").style.display=m==="reverse"?"":"none";
+  ["design","reverse","voro"].forEach(x=>{
+    document.getElementById("tab"+x[0].toUpperCase()+x.slice(1)).classList.toggle("on",m===x);
+    document.getElementById("pane"+x[0].toUpperCase()+x.slice(1)).style.display=m===x?"":"none";
+  });
   document.getElementById("lenRow").style.display=m==="reverse"?"none":"";  // 逆算では尺は自動
   persist();
 }
+function pickGenre(v){ voroGenre=v; renderChips(); persist(); }
 function toggleHook(){ hookOn=!hookOn;
   document.getElementById("hookToggle").classList.toggle("on",hookOn); persist(); }
 function chips(id,items,cur,pick,keyOf,labOf){
@@ -341,6 +406,7 @@ function renderChips(){
   chips("platChips",PLATFORMS,()=>sel.plat,pickPlat,x=>x.k,x=>x.label);
   chips("lenChips",LENS,()=>sel.len,v=>sel.len=v,x=>x.k,x=>x.label);
   chips("toneChips",TONES,()=>sel.tone,v=>sel.tone=v,x=>x,x=>x);
+  chips("genreChips",GENRES,()=>voroGenre,pickGenre,x=>x,x=>x);
 }
 renderChips();
 
@@ -409,6 +475,28 @@ const PLAN_SCHEMA={type:"OBJECT",properties:{
 },required:["title","logline","hook","thumbnail","scenes"],
  propertyOrdering:["title","logline","hook","thumbnail","scenes"]};
 
+const LINE_SCHEMA={type:"OBJECT",properties:{
+  who:{type:"STRING",description:'"解説" か "聞き手" のどちらかで、この行の話者を示す'},
+  text:{type:"STRING",description:"読み上げるセリフ全文（VOICEROIDにそのまま入れられる自然な話し言葉）"},
+  telop:{type:"STRING",description:"この行で画面に出すテロップ（不要なら空）"}
+},required:["who","text","telop"],propertyOrdering:["who","text","telop"]};
+
+const VORO_SCENE_SCHEMA={type:"OBJECT",properties:{
+  part:{type:"STRING",description:"導入 / 本編 / オチ のいずれか"},
+  label:{type:"STRING",description:"このセクションの短い見出し（話題名）"},
+  sec:{type:"INTEGER",description:"セリフ量から見積もった目安の秒数"},
+  lines:{type:"ARRAY",items:LINE_SCHEMA,description:"2キャラの掛け合いセリフ"}
+},required:["part","label","sec","lines"],propertyOrdering:["part","label","sec","lines"]};
+
+const VORO_SCHEMA={type:"OBJECT",properties:{
+  title:{type:"STRING",description:"視聴者が押したくなる動画タイトル案"},
+  logline:{type:"STRING",description:"どんな解説動画かを一文で"},
+  hook:{type:"STRING",description:"最初の数秒でのつかみのアドバイス"},
+  thumbnail:THUMB_SCHEMA,
+  scenes:{type:"ARRAY",items:VORO_SCENE_SCHEMA}
+},required:["title","logline","hook","thumbnail","scenes"],
+ propertyOrdering:["title","logline","hook","thumbnail","scenes"]};
+
 function hookRule(){
   return hookOn
     ? `- 【1秒フック強化】最初のシーン(part=導入)は「0〜1秒のフック」専用にする。labelは「フック(0-1秒)」、secは1〜2秒。冒頭で結論・数字・意外性・問いかけのどれかを一撃で出し、絶対に離脱させない。telopもその一撃を強く出す。`
@@ -418,9 +506,46 @@ function thumbRule(){
   return `- thumbnail はサムネイルのメイン文言(catch)・補助文言(sub)・見た目の指示(style)。catchは大きく載る短いコピー、styleは配色/構図/表情まで具体的に。`;
 }
 
+function readChars(){
+  const g=id=>document.getElementById(id).value.trim();
+  return {
+    tName:g("charTName")||"解説役", tStyle:g("charTStyle")||"落ち着いた先生口調・丁寧",
+    sName:g("charSName")||"聞き手", sStyle:g("charSStyle")||"素朴で相づち多め・リアクション豊か"
+  };
+}
+
 function buildPrompt(){
   const plat=PLATFORMS.find(p=>p.k===sel.plat).label;
   const lenLabel=LENS.find(l=>l.k===sel.len).label;
+
+  if(mode==="voro"){
+    const c=readChars();
+    const topic=document.getElementById("voroTopic").value.trim();
+    const genreRule=voroGenre==="ニュース"
+      ? "ニュース解説として「何が起きたか→背景→なぜ重要か→今後/まとめ」の流れにする。断定しすぎず、分かっていることと未確定を分ける。"
+      : "雑学解説として、身近な例え・具体例・意外な事実で飽きさせない。1つの問いから掘り下げる。";
+    return `あなたはボイロ解説動画（ゆっくり/VOICEROID解説）の構成作家です。以下で、読み上げにそのまま使える「2キャラの掛け合い台本」を作ってください。
+
+# 条件
+- ジャンル: ${voroGenre}
+- テーマ/内容: ${topic}
+- プラットフォーム: ${plat} ／ 目安の長さ: ${lenLabel} ／ トーン: ${sel.tone}
+- 解説役(who="解説"): 名前「${c.tName}」／口調「${c.tStyle}」
+- 聞き手(who="聞き手"): 名前「${c.sName}」／口調「${c.sStyle}」
+
+# 指示
+- ${genreRule}
+- 構成は「導入→本編（話題ごと）→オチ/まとめ」。各シーンの part は「導入」「本編」「オチ」のどれか。
+- 各シーンの lines に、2キャラの掛け合いセリフを**全文**で書く（VOICEROIDが読むのでナレーション要点ではなくセリフそのもの）。who は "解説" か "聞き手"。
+- 聞き手は相づち・素朴な疑問・ボケでテンポを作り、解説役が答える形にする。1シーン3〜8行くらい。
+- 自然な話し言葉。読み間違えやすい数字や固有名詞は、必要ならセリフ内でひらがな併記してよい。
+- telop は要所だけ（結論・キーワード・数字）に付け、他は空でよい。
+- sec は各シーンのセリフ量からおおよその尺を見積もる。
+- **重要**: 事実・数値・出典はあなたの推測を含む。断定を避け、確実でない箇所は「〜と言われている」等にする。捏造した具体的統計や偽の出典を書かない。
+${hookRule()}
+${thumbRule()}
+- 日本語で書く。`;
+  }
 
   if(mode==="reverse"){
     const tr=document.getElementById("transcript").value.trim();
@@ -470,17 +595,22 @@ let plan=null, target=60;
 async function generate(){
   if(mode==="reverse"){
     if(!document.getElementById("transcript").value.trim()){toast("文字起こしを貼り付けてください");return;}
+  }else if(mode==="voro"){
+    if(!document.getElementById("voroTopic").value.trim()){toast("テーマ・扱う内容を書いてください");return;}
   }else if(!document.getElementById("topic").value.trim()){
     toast("まず①に内容メモを書いてください");return;
   }
   if(!getKey()){openKey();return;}
   const btn=document.getElementById("genBtn");
-  btn.disabled=true;btn.innerHTML='<span class="spin"></span>'+(mode==="reverse"?"構成表に起こしています…":"設計図をつくっています…");
+  const busy={reverse:"構成表に起こしています…",voro:"掛け合い台本を書いています…"}[mode]||"設計図をつくっています…";
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>'+busy;
   try{
-    plan=await callGemini(buildPrompt(),PLAN_SCHEMA);
-    plan.scenes=(plan.scenes||[]).map(s=>({...s,sec:+s.sec||0}));
-    // 逆算モードは目標尺が無いので合計を目標扱いにする
-    target=mode==="reverse" ? plan.scenes.reduce((a,s)=>a+(+s.sec||0),0) : sel.len;
+    plan=await callGemini(buildPrompt(), mode==="voro"?VORO_SCHEMA:PLAN_SCHEMA, mode==="voro"?7000:4000);
+    plan.kind=mode==="voro"?"voro":"plan";
+    plan.scenes=(plan.scenes||[]).map(s=>({...s,sec:+s.sec||0,
+      lines:Array.isArray(s.lines)?s.lines:undefined}));
+    // 逆算/ボイロは目標尺が無いので合計を目標扱いにする
+    target=(mode==="reverse"||mode==="voro") ? plan.scenes.reduce((a,s)=>a+(+s.sec||0),0) : sel.len;
     renderPlan();
     persist();
     document.getElementById("result").style.display="block";
@@ -497,6 +627,7 @@ function renderPlan(){
   document.getElementById("rTitle").textContent=plan.title||"";
   document.getElementById("rLog").textContent=plan.logline||"";
   document.getElementById("rHook").textContent=plan.hook?("💡 "+plan.hook):"";
+  document.getElementById("factWarn").style.display=plan.kind==="voro"?"":"none";
   renderThumb();renderScenes();renderMeta();
 }
 function renderThumb(){
@@ -533,43 +664,79 @@ const FLD=[
   {k:"visual",t:"画面・カメラ",i:"🎬"},
   {k:"bgm",t:"BGM・音",i:"🎵"}
 ];
+function sceneHead(s,idx,pc){
+  return `<div class="scene-head">
+      <span class="pt ${pc}">${esc(s.part||"本編")}</span>
+      <span class="nm" contenteditable="true" spellcheck="false"
+        oninput="edit(${idx},'label',this.textContent)">${esc(s.label||"")}</span>
+      <div class="sec-edit"><input type="number" min="0" value="${+s.sec||0}"
+        oninput="editSec(${idx},this.value)"><span>秒</span></div>
+      <button class="mv" title="上へ" onclick="move(${idx},-1)">▲</button>
+      <button class="mv" title="下へ" onclick="move(${idx},1)">▼</button>
+      <button class="mv" title="削除" onclick="del(${idx})">✕</button>
+    </div>`;
+}
+function conteBody(s,idx){
+  let body="";
+  FLD.forEach(f=>{
+    body+=`<div class="fld ${f.cls||''}"><div class="k"><i>${f.i}</i>${f.t}</div>
+      <div class="v" contenteditable="true" spellcheck="false"
+      oninput="edit(${idx},'${f.k}',this.textContent)">${esc(s[f.k]||"")}</div></div>`;
+  });
+  body+=`<div class="fld wide"><div class="k"><i>✂️</i>編集のヒント</div>
+    <div class="v" contenteditable="true" spellcheck="false"
+    oninput="edit(${idx},'tips',this.textContent)">${esc(s.tips||"")}</div></div>`;
+  return `<div class="scene-body">${body}</div>`;
+}
+function voroBody(s,idx){
+  const lines=s.lines||[];
+  let body=lines.map((ln,li)=>{
+    const a=(ln.who||"").includes("聞")?"b":"a";
+    const who=a==="b"?"聞き手":"解説";
+    return `<div class="dline">
+      <span class="spk ${a}" title="話者を切替" onclick="swapWho(${idx},${li})">${who}</span>
+      <div class="dbody">
+        <div class="dtext" contenteditable="true" spellcheck="false"
+          oninput="editLine(${idx},${li},'text',this.textContent)">${esc(ln.text||"")}</div>
+        <div class="dtelop" contenteditable="true" spellcheck="false"
+          oninput="editLine(${idx},${li},'telop',this.textContent)">${esc(ln.telop||"")}</div>
+      </div>
+      <button class="lx" title="この行を削除" onclick="delLine(${idx},${li})">✕</button>
+    </div>`;
+  }).join("");
+  body+=`<button class="addline" onclick="addLine(${idx})">＋ セリフを追加</button>`;
+  return `<div class="scene-body" style="display:block">${body}</div>`;
+}
 function renderScenes(){
   const wrap=document.getElementById("scenes");wrap.innerHTML="";
+  const voro=plan.kind==="voro";
   plan.scenes.forEach((s,idx)=>{
     const el=document.createElement("div");el.className="scene";
     const pc=partClass(s.part);
-    let body="";
-    FLD.forEach(f=>{
-      body+=`<div class="fld ${f.cls||''}"><div class="k"><i>${f.i}</i>${f.t}</div>
-        <div class="v" contenteditable="true" spellcheck="false"
-        oninput="edit(${idx},'${f.k}',this.textContent)">${esc(s[f.k]||"")}</div></div>`;
-    });
-    body+=`<div class="fld wide"><div class="k"><i>✂️</i>編集のヒント</div>
-      <div class="v" contenteditable="true" spellcheck="false"
-      oninput="edit(${idx},'tips',this.textContent)">${esc(s.tips||"")}</div></div>`;
-    el.innerHTML=`
-      <div class="scene-head">
-        <span class="pt ${pc}">${esc(s.part||"本編")}</span>
-        <span class="nm" contenteditable="true" spellcheck="false"
-          oninput="edit(${idx},'label',this.textContent)">${esc(s.label||"")}</span>
-        <div class="sec-edit"><input type="number" min="0" value="${+s.sec||0}"
-          oninput="editSec(${idx},this.value)"><span>秒</span></div>
-        <button class="mv" title="上へ" onclick="move(${idx},-1)">▲</button>
-        <button class="mv" title="下へ" onclick="move(${idx},1)">▼</button>
-        <button class="mv" title="削除" onclick="del(${idx})">✕</button>
-      </div>
-      <div class="scene-body">${body}</div>`;
+    el.innerHTML=sceneHead(s,idx,pc)+(voro?voroBody(s,idx):conteBody(s,idx));
     wrap.appendChild(el);
   });
 }
+/* ボイロ: 行編集 */
+function editLine(i,li,k,v){ plan.scenes[i].lines[li][k]=v; persist(); }
+function swapWho(i,li){ const ln=plan.scenes[i].lines[li];
+  ln.who=(ln.who||"").includes("聞")?"解説":"聞き手"; renderScenes(); persist(); }
+function delLine(i,li){ const L=plan.scenes[i].lines;
+  if(L.length<=1){toast("最後の1行は消せません");return;} L.splice(li,1); renderScenes(); persist(); }
+function addLine(i){ const L=plan.scenes[i].lines;
+  const last=L[L.length-1]; const who=last&&!(last.who||"").includes("聞")?"聞き手":"解説";
+  L.push({who,text:"",telop:""}); renderScenes(); persist(); }
 function edit(i,k,v){ plan.scenes[i][k]=v; persist(); if(k==="label")renderMeta(); }
 function editSec(i,v){ plan.scenes[i].sec=+v||0; renderMeta(); persist(); }
 function move(i,d){ const j=i+d; if(j<0||j>=plan.scenes.length)return;
   [plan.scenes[i],plan.scenes[j]]=[plan.scenes[j],plan.scenes[i]]; renderScenes();renderMeta();persist(); }
 function del(i){ if(plan.scenes.length<=1){toast("最後の1つは消せません");return;}
   plan.scenes.splice(i,1); renderScenes();renderMeta();persist(); }
-function addScene(){ plan.scenes.push({part:"本編",label:"新しいシーン",sec:15,
-  narration:"",telop:"",visual:"",bgm:"",tips:""}); renderScenes();renderMeta();persist();
+function addScene(){
+  const s=plan.kind==="voro"
+    ? {part:"本編",label:"新しい話題",sec:20,lines:[{who:"解説",text:"",telop:""}]}
+    : {part:"本編",label:"新しいシーン",sec:15,narration:"",telop:"",visual:"",bgm:"",tips:""};
+  plan.scenes.push(s); renderScenes();renderMeta();persist();
   window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}); }
 
 /* title/logline edits */
@@ -585,6 +752,20 @@ function copyMd(){
   const th=plan.thumbnail;
   if(th){ md+=`**🖼 サムネ文言**：${th.catch}${th.sub?" ／ "+th.sub:""}\n`;
     if(th.style)md+=`（見た目：${th.style}）\n`; md+=`\n`; }
+
+  if(plan.kind==="voro"){
+    md+=`> ⚠️ AI生成の下書き。事実・数値・出典は要ファクトチェック。\n\n---\n`;
+    plan.scenes.forEach((s,i)=>{
+      md+=`\n### ${i+1}. ${s.label}（${s.part}・${fmt(s.sec)}）\n`;
+      (s.lines||[]).forEach(ln=>{
+        const who=(ln.who||"").includes("聞")?"聞き手":"解説";
+        md+=`- **${who}**：${ln.text}${ln.telop?`  〔テロップ：${ln.telop}〕`:""}\n`;
+      });
+    });
+    navigator.clipboard.writeText(md).then(()=>toast("台本をMarkdownでコピーしました"),()=>toast("コピーに失敗しました",true));
+    return;
+  }
+
   md+=`| # | 区分 | シーン | 尺 | テロップ |\n|--|--|--|--|--|\n`;
   plan.scenes.forEach((s,i)=>{md+=`| ${i+1} | ${s.part} | ${s.label} | ${fmt(s.sec)} | ${(s.telop||"").replace(/\n/g," ")} |\n`;});
   md+=`\n---\n`;
@@ -596,14 +777,20 @@ function copyMd(){
 }
 
 /* ---------- persist ---------- */
-function persist(){ save(LS_STATE,{plan,target,sel,mode,hookOn,
-  topic:document.getElementById("topic").value,
-  transcript:document.getElementById("transcript").value}); }
+const VORO_INPUTS=["voroTopic","charTName","charTStyle","charSName","charSStyle"];
+function persist(){
+  const v={}; VORO_INPUTS.forEach(id=>v[id]=document.getElementById(id).value);
+  save(LS_STATE,{plan,target,sel,mode,hookOn,voroGenre,voro:v,
+    topic:document.getElementById("topic").value,
+    transcript:document.getElementById("transcript").value});
+}
 function restore(){
   const st=load(LS_STATE,null); if(!st)return;
   if(st.sel)sel=st.sel;
+  if(st.voroGenre)voroGenre=st.voroGenre;
   if(st.topic)document.getElementById("topic").value=st.topic;
   if(st.transcript)document.getElementById("transcript").value=st.transcript;
+  if(st.voro)VORO_INPUTS.forEach(id=>{if(st.voro[id]!=null)document.getElementById(id).value=st.voro[id];});
   if(typeof st.hookOn==="boolean"){ hookOn=st.hookOn;
     document.getElementById("hookToggle").classList.toggle("on",hookOn); }
   renderChips();
