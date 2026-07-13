@@ -261,8 +261,9 @@
       <p class="lead">雑学・ニュース系の<b>ボイロ解説（ゆっくり/VOICEROID）</b>向けに、テーマから<b>2キャラの掛け合い台本</b>を生成します。読み上げにそのまま使えるセリフ全文＋テロップ付き。</p>
       <label class="f">① テーマ・扱う内容</label>
       <textarea id="voroTopic" placeholder="例：なぜ空は青いのか。雑学的に、身近な例えを交えて。／ 例：先週の○○のニュースをわかりやすく解説。"></textarea>
+      <div class="chips" id="tasteChips" style="margin-top:4px"></div>
       <button class="trendbtn" id="trendBtn" onclick="fetchTrends()">🔥 いま話題のことを取得（ネタ探し）</button>
-      <p class="trendnote">AIがWeb検索で集めた「最近話題の話」を5〜10件出します。押すとテーマ欄に入ります。<b>Xの公式トレンドそのものではなく、鮮度・正確性は要確認</b>（Gemini検索連携を使用）。</p>
+      <p class="trendnote">AIがWeb検索で集めた「最近バズってる話」を5〜10件出します（X・5ch/なんJ・まとめ・SNSなど）。押すとテーマ欄に入ります。<b>公式トレンドそのものではなく、鮮度・正確性は要確認</b>。噂・ゴシップ系は特に裏取り必須。</p>
       <div class="trendlist" id="trendList"></div>
 
       <label class="f">② ジャンル</label>
@@ -403,6 +404,13 @@ const LENS=[
 ];
 const TONES=["元気・テンポ","落ち着き・丁寧","エモ・余韻","おもしろ・ネタ","かっこいい"];
 const GENRES=["雑学","ニュース"];
+const TASTES=[
+  {k:"buzz",  label:"🔥バズ・衝撃"},
+  {k:"hee",   label:"😲へぇ雑学"},
+  {k:"gossip",label:"👀ゴシップ・裏側"},
+  {k:"news",  label:"📰王道ニュース"}
+];
+let trendTaste="buzz";
 const CHAR_PRESETS=[
   {k:"metan",  label:"めたん & ずんだもん",   tName:"四国めたん", tStyle:"落ち着いた先生口調・丁寧に噛み砕いて教える",
     sName:"ずんだもん", sStyle:"素朴で元気・語尾が「〜のだ」・驚きや相づち多め"},
@@ -475,6 +483,7 @@ function renderChips(){
   chips("toneChips",TONES,()=>sel.tone,v=>sel.tone=v,x=>x,x=>x);
   chips("genreChips",GENRES,()=>voroGenre,pickGenre,x=>x,x=>x);
   chips("charPresetChips",CHAR_PRESETS,()=>charPreset,selectCharPreset,x=>x.k,x=>x.label);
+  chips("tasteChips",TASTES,()=>trendTaste,v=>{trendTaste=v;renderChips();persist();},x=>x.k,x=>x.label);
 }
 renderChips();
 
@@ -564,10 +573,18 @@ async function fetchTrends(){
   const btn=document.getElementById("trendBtn");
   btn.disabled=true; btn.innerHTML='<span class="spin"></span>話題を検索中…';
   try{
-    const prompt=`いま日本で話題になっていることを、X（旧Twitter）やYahoo!ニュースなど最近取り上げられている話から5〜10件挙げてください。動画（雑学・ニュース解説）のネタになりそうなものを優先。
+    const tasteRule={
+      buzz:"いま SNS（X）・5ch/なんJ・まとめ・ネットで“バズっている”、思わずクリックしたくなる話題を優先。硬い政治経済ニュースは避け、意外・衝撃・感情が動く「気になって続きを見たくなる」ネタを中心に。",
+      hee:"意外で「へぇ！」となる雑学・トリビア・豆知識中心。日常の疑問、体・食べ物・science系の面白い話など、ネタとして映える意外性のあるもの。",
+      gossip:"芸能・ネット・炎上・○○の裏側・噂・都市伝説など、話のタネになる俗っぽい話題中心。ただし実在の個人への誹謗中傷、未確認のプライバシー暴露、明確なデマは含めない。",
+      news:"最近のニュースで、解説動画にすると伸びそうな注目度の高いものを中心に。"
+    }[trendTaste]||"";
+    const prompt=`YouTubeの雑学/解説動画のネタ探しです。いま日本で話題のことを、X（旧Twitter）・5ch/なんJ・まとめサイト・Yahoo!ニュースなど最近盛り上がっている話から5〜10件挙げてください。
+方針: ${tasteRule}
+再生数が伸びそうな「引きの強い見出し」にする（ただし嘘の煽りはしない）。
 次のJSON配列だけを出力（前後に説明文やコードフェンスを付けない）:
-[{"title":"短い見出し","summary":"どんな話題か1〜2文","genre":"雑学|ニュース|その他","source":"X|Yahoo|ネット などの推定の出どころ"}]
-できるだけ最近の情報を使う。不確かなもの・センシティブすぎるものは含めない。`;
+[{"title":"引きのある短い見出し","summary":"どんな話題か1〜2文","genre":"雑学|ニュース|ゴシップ|その他","source":"X|5ch|まとめ|Yahoo|ネット などの推定の出どころ"}]
+できるだけ最近の情報を使う。事実として確認しづらいものは summary で「〜という噂」等と正直に書く。実在の個人を貶める内容や違法・過度に露悪的な内容は避ける。`;
     const text=await callGeminiGrounded(prompt,3000);
     const arr=extractJsonArray(text);
     if(!arr||!arr.length) throw new Error("話題をうまく取得できませんでした。もう一度試してください。");
@@ -935,7 +952,7 @@ function copyMd(){
 const VORO_INPUTS=["voroTopic","charTName","charTStyle","charSName","charSStyle"];
 function persist(){
   const v={}; VORO_INPUTS.forEach(id=>v[id]=document.getElementById(id).value);
-  save(LS_STATE,{plan,target,sel,mode,hookOn,voroGenre,charPreset,trends,voro:v,
+  save(LS_STATE,{plan,target,sel,mode,hookOn,voroGenre,charPreset,trendTaste,trends,voro:v,
     topic:document.getElementById("topic").value,
     transcript:document.getElementById("transcript").value});
 }
@@ -944,6 +961,7 @@ function restore(){
   if(!st){ selectCharPreset(charPreset); return; }   // 初回は既定キャラを反映
   if(st.sel)sel=st.sel;
   if(st.voroGenre)voroGenre=st.voroGenre;
+  if(st.trendTaste)trendTaste=st.trendTaste;
   if(st.topic)document.getElementById("topic").value=st.topic;
   if(st.transcript)document.getElementById("transcript").value=st.transcript;
   if(st.voro)VORO_INPUTS.forEach(id=>{if(st.voro[id]!=null)document.getElementById(id).value=st.voro[id];});
