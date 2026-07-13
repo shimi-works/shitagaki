@@ -157,6 +157,11 @@
   .trend .tg.news{background:var(--p-intro)} .trend .tg.zatsu{background:var(--good)} .trend .tg.etc{background:#8a97a4}
   .trend .ttl{font-size:14px;font-weight:700;flex:1;min-width:0}
   .trend .tsrc{font-size:10.5px;color:var(--sub);flex:0 0 auto}
+  .trend .twhen{font-size:10.5px;font-weight:700;color:var(--sub);flex:0 0 auto;
+    border:1px solid var(--line);border-radius:999px;padding:1px 7px}
+  .trend .twhen.fresh{color:#0c0f13;background:var(--good);border-color:var(--good)}
+  .trend .twhen.recent{color:var(--good);border-color:var(--good)}
+  .trend .twhen.stale{color:var(--warn);border-color:#6a4a18}
   .trend .tsum{font-size:12px;color:var(--sub);line-height:1.55;margin-top:4px}
   .trend .tpick{font-size:11px;color:var(--accent2);font-weight:700;margin-top:6px}
 
@@ -263,7 +268,7 @@
       <textarea id="voroTopic" placeholder="例：なぜ空は青いのか。雑学的に、身近な例えを交えて。／ 例：先週の○○のニュースをわかりやすく解説。"></textarea>
       <div class="chips" id="tasteChips" style="margin-top:4px"></div>
       <button class="trendbtn" id="trendBtn" onclick="fetchTrends()">🔥 いま話題のことを取得（ネタ探し）</button>
-      <p class="trendnote">AIがWeb検索で集めた「最近バズってる話」を5〜10件出します（X・5ch/なんJ・まとめ・SNSなど）。押すとテーマ欄に入ります。<b>公式トレンドそのものではなく、鮮度・正確性は要確認</b>。噂・ゴシップ系は特に裏取り必須。</p>
+      <p class="trendnote">AIがWeb検索で集めた「ここ1〜2日で話題の話」を出します（X・5ch/なんJ・まとめ・Yahooなど）。🕒バッジがいつの話題か・新しい順。<b>検索連携の都合で厳密な当日保証はできず、古い話が混じることも</b>。公式トレンドそのものではなく鮮度・正確性は要確認、噂系は裏取り必須。</p>
       <div class="trendlist" id="trendList"></div>
 
       <label class="f">② ジャンル</label>
@@ -559,6 +564,19 @@ async function callGeminiGrounded(prompt,maxTokens=3000){
     return text;
   }
 }
+function todayInfo(){
+  const d=new Date();
+  const wd=["日","月","火","水","木","金","土"][d.getDay()];
+  const two=new Date(d.getTime()-2*86400000);
+  const f=x=>`${x.getFullYear()}年${x.getMonth()+1}月${x.getDate()}日`;
+  return {today:`${f(d)}(${wd})`, cutoff:f(two), md:`${d.getMonth()+1}/${d.getDate()}`};
+}
+function freshRank(w){ w=String(w||"");
+  if(/本日|今日/.test(w))return 0;
+  if(/昨日|1日前|一日前|時間前/.test(w))return 1;
+  if(/\d{1,2}\s*\/\s*\d{1,2}|\d{1,2}月\d{1,2}日|日前/.test(w))return 2;
+  return 3;   // 時期不明は後ろへ
+}
 function extractJsonArray(text){
   let t=String(text).replace(/```json/gi,"```").replace(/```/g,"");
   const s=t.indexOf("["), e=t.lastIndexOf("]");
@@ -579,16 +597,19 @@ async function fetchTrends(){
       gossip:"芸能・ネット・炎上・○○の裏側・噂・都市伝説など、話のタネになる俗っぽい話題中心。ただし実在の個人への誹謗中傷、未確認のプライバシー暴露、明確なデマは含めない。",
       news:"最近のニュースで、解説動画にすると伸びそうな注目度の高いものを中心に。"
     }[trendTaste]||"";
-    const prompt=`YouTubeの雑学/解説動画のネタ探しです。いま日本で話題のことを、X（旧Twitter）・5ch/なんJ・まとめサイト・Yahoo!ニュースなど最近盛り上がっている話から5〜10件挙げてください。
+    const t=todayInfo();
+    const prompt=`YouTubeの雑学/解説動画のネタ探しです。今日は ${t.today}。
+最重要: **${t.cutoff} 以降に報じられた/投稿された、ここ1〜2日の「新しい」話題だけ**を厳選してください。数週間前のまとめ・時期が古いもの・いつの話か不明なものは絶対に入れない。新しいものが少なければ件数は5件未満でも構わない。
+情報源: X（旧Twitter）・5ch/なんJ・まとめ・Yahoo!ニュースなど、直近で盛り上がっているもの。
 方針: ${tasteRule}
-再生数が伸びそうな「引きの強い見出し」にする（ただし嘘の煽りはしない）。
+再生数が伸びそうな「引きの強い見出し」にする（ただし嘘の煽りはしない）。新しい順に並べる。
 次のJSON配列だけを出力（前後に説明文やコードフェンスを付けない）:
-[{"title":"引きのある短い見出し","summary":"どんな話題か1〜2文","genre":"雑学|ニュース|ゴシップ|その他","source":"X|5ch|まとめ|Yahoo|ネット などの推定の出どころ"}]
-できるだけ最近の情報を使う。事実として確認しづらいものは summary で「〜という噂」等と正直に書く。実在の個人を貶める内容や違法・過度に露悪的な内容は避ける。`;
+[{"title":"引きのある短い見出し","summary":"どんな話題か1〜2文","when":"いつの話題か（例: 本日 / 昨日 / ${t.md}）","genre":"雑学|ニュース|ゴシップ|その他","source":"X|5ch|まとめ|Yahoo|ネット"}]
+確認しづらいものは summary で「〜という噂」等と正直に書く。実在の個人を貶める内容や違法・過度に露悪的な内容は避ける。`;
     const text=await callGeminiGrounded(prompt,3000);
     const arr=extractJsonArray(text);
     if(!arr||!arr.length) throw new Error("話題をうまく取得できませんでした。もう一度試してください。");
-    trends=arr.slice(0,10); renderTrends(); persist();
+    trends=arr.sort((a,b)=>freshRank(a.when)-freshRank(b.when)).slice(0,10); renderTrends(); persist();
     toast(`${trends.length}件の話題を取得しました`);
   }catch(e){ toast(e.message||"取得に失敗しました",true); }
   finally{ btn.disabled=false; btn.textContent="🔥 いま話題のことを取得（ネタ探し）"; }
@@ -598,9 +619,12 @@ function renderTrends(){
   const wrap=document.getElementById("trendList"); wrap.innerHTML="";
   trends.forEach((t,i)=>{
     const el=document.createElement("div"); el.className="trend"; el.onclick=()=>pickTrend(i);
+    const fr=freshRank(t.when);
+    const whenCls=fr===0?"fresh":fr===1?"recent":fr===3?"stale":"";
     el.innerHTML=`<div class="tth">
         <span class="tg ${gCls(t.genre)}">${esc(t.genre||"その他")}</span>
         <span class="ttl">${esc(t.title||"")}</span>
+        ${t.when?`<span class="twhen ${whenCls}">🕒${esc(t.when)}</span>`:""}
         ${t.source?`<span class="tsrc">${esc(t.source)}</span>`:""}
       </div>
       ${t.summary?`<div class="tsum">${esc(t.summary)}</div>`:""}
