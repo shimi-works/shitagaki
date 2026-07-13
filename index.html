@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>したがき ― 動画の設計図メーカー</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#161b22; --panel2:#1c232c; --line:#28313c;
+    --ink:#e8edf3; --sub:#9aa7b4; --accent:#ff5d5d; --accent2:#4db6ff;
+    --good:#57d38c; --warn:#ffca5d;
+    --p-intro:#4db6ff; --p-main:#ff5d5d; --p-out:#b98cff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  button{font-family:inherit;cursor:pointer}
+  a{color:var(--accent2)}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 16px 80px}
+
+  header{position:sticky;top:0;z-index:20;background:rgba(15,18,22,.86);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .hbar{max-width:1040px;margin:0 auto;display:flex;align-items:center;gap:12px;
+    padding:12px 16px}
+  .logo{font-weight:800;letter-spacing:.02em;font-size:19px}
+  .logo b{color:var(--accent)}
+  .logo small{display:block;font-weight:500;font-size:11px;color:var(--sub);letter-spacing:.06em}
+  .spacer{flex:1}
+  .ic{background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600}
+  .ic:hover{border-color:#3a4552}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .lead{color:var(--sub);font-size:13.5px;line-height:1.7}
+
+  /* mode tabs */
+  .tabs{display:flex;gap:6px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:12px;padding:4px;margin-bottom:6px}
+  .tab{flex:1;background:transparent;border:none;color:var(--sub);border-radius:9px;
+    padding:9px;font-size:13.5px;font-weight:700}
+  .tab.on{background:var(--accent);color:#fff}
+  .tab:not(.on):hover{color:var(--ink)}
+
+  /* toggle */
+  .toggle{display:flex;align-items:center;gap:11px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-top:14px;cursor:pointer}
+  .toggle .sw{width:40px;height:23px;border-radius:999px;background:#3a4552;position:relative;
+    flex:0 0 auto;transition:.2s}
+  .toggle .sw::after{content:"";position:absolute;top:2px;left:2px;width:19px;height:19px;
+    border-radius:50%;background:#fff;transition:.2s}
+  .toggle.on .sw{background:var(--good)}
+  .toggle.on .sw::after{transform:translateX(17px)}
+  .toggle .tt{font-size:13px;font-weight:700}
+  .toggle .td{font-size:11.5px;color:var(--sub);margin-top:2px}
+
+  label.f{display:block;font-size:12px;color:var(--sub);font-weight:700;
+    letter-spacing:.04em;margin:14px 0 7px}
+  textarea{width:100%;min-height:96px;resize:vertical;background:var(--panel2);
+    border:1px solid var(--line);border-radius:12px;color:var(--ink);
+    padding:12px 13px;font-size:15px;line-height:1.6;font-family:inherit}
+  textarea:focus,input:focus{outline:none;border-color:var(--accent2)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--panel2);border:1px solid var(--line);color:var(--sub);
+    border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chip:hover{border-color:#3a4552}
+  .row{display:flex;gap:20px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:180px}
+
+  .cta{width:100%;margin-top:20px;background:linear-gradient(135deg,#ff5d5d,#ff8a5d);
+    color:#fff;border:none;border-radius:13px;padding:15px;font-size:16px;font-weight:800;
+    letter-spacing:.03em;box-shadow:0 6px 20px rgba(255,93,93,.28)}
+  .cta:disabled{opacity:.55;box-shadow:none;cursor:default}
+
+  /* result */
+  #result{margin-top:26px;display:none}
+  .titlebox{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .titlebox h2{margin:0;font-size:22px;line-height:1.35;flex:1;min-width:220px}
+  .logline{color:var(--sub);font-size:14px;margin:6px 0 0;line-height:1.6}
+  .badge{background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:9px 13px;text-align:center;min-width:96px}
+  .badge b{display:block;font-size:19px}
+  .badge span{font-size:11px;color:var(--sub)}
+  .badge.over b{color:var(--warn)}
+
+  .timeline{display:flex;height:34px;border-radius:9px;overflow:hidden;margin:16px 0 4px;
+    border:1px solid var(--line);background:var(--panel2)}
+  .seg{display:flex;align-items:center;justify-content:center;font-size:10.5px;color:#0c0f13;
+    font-weight:800;overflow:hidden;white-space:nowrap;min-width:2px;border-right:1px solid rgba(0,0,0,.25)}
+  .tl-legend{display:flex;gap:16px;font-size:11.5px;color:var(--sub);margin-bottom:20px}
+  .tl-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+  /* thumbnail */
+  .thumb{margin-top:16px;background:linear-gradient(135deg,#1c232c,#141a20);
+    border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;gap:14px;align-items:flex-start}
+  .thumb .ti{font-size:22px;flex:0 0 auto}
+  .thumb .tk{font-size:10.5px;font-weight:800;letter-spacing:.05em;color:var(--warn);margin-bottom:6px}
+  .thumb .tcatch{font-size:19px;font-weight:900;line-height:1.35;letter-spacing:.01em}
+  .thumb .tsub{font-size:13px;color:var(--sub);margin-top:4px}
+  .thumb .tstyle{font-size:11.5px;color:var(--sub);margin-top:8px;border-top:1px dashed var(--line);padding-top:7px}
+  .thumb [contenteditable]:focus{outline:none;background:var(--bg);border-radius:6px}
+
+  .scene{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:0;margin-bottom:14px;overflow:hidden}
+  .scene-head{display:flex;align-items:center;gap:10px;padding:11px 14px;
+    background:var(--panel2);border-bottom:1px solid var(--line)}
+  .pt{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;color:#0c0f13}
+  .pt.intro{background:var(--p-intro)} .pt.main{background:var(--p-main)} .pt.out{background:var(--p-out)}
+  .scene-head .nm{font-weight:700;font-size:15px;flex:1;min-width:0}
+  .sec-edit{display:flex;align-items:center;gap:5px;background:var(--bg);
+    border:1px solid var(--line);border-radius:9px;padding:3px 8px}
+  .sec-edit input{width:44px;background:transparent;border:none;color:var(--ink);
+    font-size:15px;font-weight:800;text-align:right;font-family:inherit}
+  .sec-edit span{font-size:11px;color:var(--sub)}
+  .mv{background:transparent;border:none;color:var(--sub);font-size:15px;padding:2px 5px;border-radius:6px}
+  .mv:hover{background:var(--bg);color:var(--ink)}
+  .scene-body{padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .fld{min-width:0}
+  .fld .k{font-size:10.5px;font-weight:800;letter-spacing:.05em;color:var(--sub);margin-bottom:4px;
+    display:flex;align-items:center;gap:5px}
+  .fld .k i{font-style:normal}
+  .fld .v{font-size:13.5px;line-height:1.6;background:var(--panel2);border:1px solid var(--line);
+    border-radius:9px;padding:8px 10px;min-height:20px}
+  .fld .v:focus{outline:none;border-color:var(--accent2);background:var(--bg)}
+  .fld.telop .v{border-left:3px solid var(--warn)}
+  .fld.wide{grid-column:1 / -1}
+
+  .addbtn{width:100%;background:var(--panel2);border:1px dashed var(--line);color:var(--sub);
+    border-radius:12px;padding:11px;font-weight:700;font-size:13px;margin-bottom:24px}
+  .addbtn:hover{border-color:var(--accent2);color:var(--ink)}
+  .exp{display:flex;gap:10px;flex-wrap:wrap}
+  .exp button{flex:1;min-width:130px}
+
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;
+    justify-content:center;z-index:50;padding:16px}
+  .modal.open{display:flex}
+  .sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    max-width:480px;width:100%;padding:22px;max-height:88vh;overflow:auto}
+  .sheet h3{margin:0 0 6px}
+  .sheet input[type=text],.sheet input[type=password],.sheet select{width:100%;background:var(--panel2);
+    border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:11px;font-size:14px;
+    margin-top:8px;font-family:inherit}
+  .sheet .cta{margin-top:16px}
+  .muted{color:var(--sub);font-size:12.5px;line-height:1.7}
+  .steps{padding-left:18px;margin:8px 0;font-size:13px;line-height:1.8;color:var(--sub)}
+
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#222b36;
+    border:1px solid var(--line);color:var(--ink);padding:11px 18px;border-radius:11px;font-size:13.5px;
+    z-index:60;opacity:0;transition:.25s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .toast.show{opacity:1;bottom:30px}
+  .err{background:#3a1f22;border-color:#5a2a2e}
+
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);
+    border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:7px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  @media(max-width:640px){.scene-body{grid-template-columns:1fr}}
+  @media print{
+    header,.inputcard,.exp,.addbtn,.mv,.modal,.toast{display:none!important}
+    body{background:#fff;color:#000}
+    .scene,.card{border-color:#ccc;break-inside:avoid}
+    .scene-head{background:#f4f4f4} .fld .v{background:#fafafa;border-color:#ddd}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="hbar">
+    <div class="logo">した<b>がき</b><small>動画の設計図メーカー</small></div>
+    <div class="spacer"></div>
+    <button class="ic" onclick="openKey()">⚙ 設定</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- INPUT -->
+  <div class="card inputcard" id="inputcard">
+    <div class="tabs">
+      <button class="tab on" id="tabDesign" onclick="setMode('design')">✎ メモから設計</button>
+      <button class="tab" id="tabReverse" onclick="setMode('reverse')">📝 文字起こしから起こす</button>
+    </div>
+
+    <!-- MODE: design -->
+    <div id="paneDesign">
+      <p class="lead">撮る前・編集する前に、<b>構成の設計図（絵コンテ）</b>を一気に作ります。テーマや素材メモを書いて生成すると、導入→本編→オチの<b>カット割り・尺・テロップ案・画面/BGM・サムネ文言</b>が出ます。カードは手直しでき、Markdownで書き出して編集ソフトの横に置けます。</p>
+      <label class="f">① 何の動画？ 内容・素材メモ</label>
+      <textarea id="topic" placeholder="例：大学の学食レビュー。安いのに量が多い定食を3つ紹介。実際に食べてる映像あり。オチは推しの1品。"></textarea>
+    </div>
+
+    <!-- MODE: reverse -->
+    <div id="paneReverse" style="display:none">
+      <p class="lead">すでに撮った/話した動画の<b>文字起こしを貼る</b>と、それを見やすい<b>構成表（絵コンテ）に逆算</b>します。編集時にどこで区切り・どんなテロップを入れるかの当たりを付けられます。</p>
+      <label class="f">① 文字起こし（話した内容をそのまま貼り付け）</label>
+      <textarea id="transcript" style="min-height:150px" placeholder="例：はいどうも～今日は学食レビューです。まず1つ目がこのカツ丼で…（YouTubeの字幕やWhisper等の書き起こしを丸ごと貼る）"></textarea>
+    </div>
+
+    <div class="row">
+      <div>
+        <label class="f">② プラットフォーム</label>
+        <div class="chips" id="platChips"></div>
+      </div>
+    </div>
+    <div class="row">
+      <div id="lenRow">
+        <label class="f">③ 目安の長さ</label>
+        <div class="chips" id="lenChips"></div>
+      </div>
+      <div>
+        <label class="f">④ トーン</label>
+        <div class="chips" id="toneChips"></div>
+      </div>
+    </div>
+
+    <div class="toggle" id="hookToggle" onclick="toggleHook()">
+      <div class="sw"></div>
+      <div><div class="tt">⚡ 1秒フック強化モード</div>
+        <div class="td">冒頭に「0〜1秒で離脱させない」専用シーンを作り、掴みを最優先で設計。縦型ショート向け。</div></div>
+    </div>
+
+    <button class="cta" id="genBtn" onclick="generate()">✦ 設計図をつくる</button>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result">
+    <div class="card">
+      <div class="titlebox">
+        <div style="flex:1;min-width:220px">
+          <h2 id="rTitle" contenteditable="true" spellcheck="false"></h2>
+          <p class="logline" id="rLog" contenteditable="true" spellcheck="false"></p>
+        </div>
+        <div class="badge" id="rTotal"><b>–</b><span>合計 / 目標</span></div>
+      </div>
+      <div class="timeline" id="rTimeline"></div>
+      <div class="tl-legend">
+        <span><i style="background:var(--p-intro)"></i>導入</span>
+        <span><i style="background:var(--p-main)"></i>本編</span>
+        <span><i style="background:var(--p-out)"></i>オチ</span>
+        <span style="margin-left:auto;color:var(--sub)" id="rHook"></span>
+      </div>
+      <div class="thumb" id="rThumb">
+        <div class="ti">🖼</div>
+        <div style="flex:1;min-width:0">
+          <div class="tk">サムネ文言案</div>
+          <div class="tcatch" contenteditable="true" spellcheck="false" id="thCatch"
+            oninput="editThumb('catch',this.textContent)"></div>
+          <div class="tsub" contenteditable="true" spellcheck="false" id="thSub"
+            oninput="editThumb('sub',this.textContent)"></div>
+          <div class="tstyle" contenteditable="true" spellcheck="false" id="thStyle"
+            oninput="editThumb('style',this.textContent)"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="scenes" style="margin-top:16px"></div>
+    <button class="addbtn" onclick="addScene()">＋ シーンを追加</button>
+
+    <div class="exp">
+      <button class="ic" onclick="copyMd()">📋 Markdownでコピー</button>
+      <button class="ic" onclick="window.print()">🖨 印刷 / PDF保存</button>
+      <button class="ic" onclick="regen()">↻ 別案を作り直す</button>
+    </div>
+  </div>
+</div>
+
+<!-- KEY MODAL -->
+<div class="modal" id="keyModal">
+  <div class="sheet">
+    <h3>Gemini APIキーの設定</h3>
+    <p class="muted">このアプリは Google の <b>Gemini（無料枠・クレカ不要）</b> を直接呼び出します。キーはこの端末の <b>localStorage にのみ</b>保存され、外部には送りません（Googleへの通信を除く）。共有PCでは注意。</p>
+    <ol class="steps">
+      <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> を開く</li>
+      <li>「Create API key」でキーを発行</li>
+      <li>下の欄に貼り付けて保存</li>
+    </ol>
+    <input type="password" id="keyInput" placeholder="ここにAPIキーを貼り付け" autocomplete="off">
+    <label class="f" style="margin-bottom:0">モデル</label>
+    <select id="modelSelect">
+      <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite（軽量・上限ゆるめ・推奨）</option>
+      <option value="gemini-2.5-flash">gemini-2.5-flash（高品質・上限きつめ）</option>
+      <option value="gemini-2.0-flash">gemini-2.0-flash（フォールバック）</option>
+    </select>
+    <button class="cta" onclick="saveKey()">保存する</button>
+    <p class="muted" style="margin-top:12px;text-align:center"><a href="#" onclick="closeKey();return false">閉じる</a></p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- config / storage ---------- */
+const LS_KEY="shitagaki_key", LS_MODEL="shitagaki_model", LS_STATE="shitagaki_state";
+let MODEL=localStorage.getItem(LS_MODEL)||"gemini-2.5-flash-lite";
+const getKey=()=>localStorage.getItem(LS_KEY)||"";
+function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
+function load(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}}
+
+/* ---------- pickers ---------- */
+const PLATFORMS=[
+  {k:"yt",label:"YouTube 長尺(横)"},
+  {k:"short",label:"ショート(縦)"},
+  {k:"expl",label:"解説・教育"},
+  {k:"vlog",label:"Vlog・日常"},
+  {k:"promo",label:"商品/告知"}
+];
+const LENS=[
+  {k:30,label:"30秒"},{k:60,label:"1分"},{k:180,label:"3分"},{k:300,label:"5分"},{k:600,label:"10分"}
+];
+const TONES=["元気・テンポ","落ち着き・丁寧","エモ・余韻","おもしろ・ネタ","かっこいい"];
+
+let sel={plat:"yt",len:60,tone:"元気・テンポ"};
+let mode="design";      // "design" | "reverse"
+let hookOn=false;       // 1秒フック強化
+
+function setMode(m){
+  mode=m;
+  document.getElementById("tabDesign").classList.toggle("on",m==="design");
+  document.getElementById("tabReverse").classList.toggle("on",m==="reverse");
+  document.getElementById("paneDesign").style.display=m==="design"?"":"none";
+  document.getElementById("paneReverse").style.display=m==="reverse"?"":"none";
+  document.getElementById("lenRow").style.display=m==="reverse"?"none":"";  // 逆算では尺は自動
+  persist();
+}
+function toggleHook(){ hookOn=!hookOn;
+  document.getElementById("hookToggle").classList.toggle("on",hookOn); persist(); }
+function chips(id,items,cur,pick,keyOf,labOf){
+  const el=document.getElementById(id);el.innerHTML="";
+  items.forEach(it=>{
+    const key=keyOf(it),lab=labOf(it);
+    const b=document.createElement("button");
+    b.className="chip"+(cur()===key?" on":"");b.textContent=lab;
+    b.onclick=()=>{pick(key);renderChips()};el.appendChild(b);
+  });
+}
+function pickPlat(v){
+  sel.plat=v;
+  if(v==="short"&&!hookOn) toggleHook();   // 縦型ショートは掴み最優先→自動ON
+}
+function renderChips(){
+  chips("platChips",PLATFORMS,()=>sel.plat,pickPlat,x=>x.k,x=>x.label);
+  chips("lenChips",LENS,()=>sel.len,v=>sel.len=v,x=>x.k,x=>x.label);
+  chips("toneChips",TONES,()=>sel.tone,v=>sel.tone=v,x=>x,x=>x);
+}
+renderChips();
+
+/* ---------- Gemini ---------- */
+const MODELPOOL=["gemini-2.5-flash-lite","gemini-2.0-flash","gemini-2.5-flash"];
+async function callGemini(prompt,schema,maxTokens=4000){
+  const key=getKey();
+  if(!key){openKey();throw new Error("APIキーが未設定です");}
+  const pool=[MODEL,...MODELPOOL.filter(m=>m!==MODEL)];
+  for(let mi=0;mi<pool.length;mi++){
+    const model=pool[mi];
+    const gc={responseMimeType:"application/json",responseSchema:schema,maxOutputTokens:maxTokens};
+    if(/2\.5/.test(model)) gc.thinkingConfig={thinkingBudget:0};
+    const body={contents:[{parts:[{text:prompt}]}],generationConfig:gc};
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+    let res;
+    for(let a=0;a<3;a++){
+      res=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+      if(res.status!==503&&res.status!==500)break;
+      if(a<2)await new Promise(r=>setTimeout(r,1500*(a+1)));
+    }
+    if(res.status===429&&mi<pool.length-1)continue;
+    if(!res.ok){
+      let msg=res.status+" "+res.statusText;
+      try{const e=await res.json();msg=e.error?.message||msg;}catch(_){}
+      if(res.status===400&&/API key|API_KEY/i.test(msg))msg="APIキーが無効です。設定を確認してください。";
+      if(res.status===403)msg="APIキーが無効か権限がありません。設定を確認してください。";
+      if(res.status===429)msg="全モデルで無料枠の上限に達しました。しばらく待つか、明日また試してください（無料枠は日本の昼ごろリセット）。";
+      if(res.status===503||res.status===500)msg="Geminiが一時的に混雑しています。数十秒おいて再試行してください。";
+      throw new Error(msg);
+    }
+    const data=await res.json();
+    if(data.promptFeedback?.blockReason)throw new Error("内容が安全上の理由でブロックされました。表現を変えて試してください。");
+    const cand=data.candidates?.[0];
+    const text=(cand?.content?.parts||[]).map(p=>p.text).filter(Boolean).join("");
+    if(!text)throw new Error("応答を取得できませんでした。"+(cand?.finishReason?` (${cand.finishReason})`:""));
+    if(model!==MODEL){MODEL=model;localStorage.setItem(LS_MODEL,MODEL);}
+    return JSON.parse(text);
+  }
+}
+
+const SCENE_SCHEMA={type:"OBJECT",properties:{
+  part:{type:"STRING",description:"導入 / 本編 / オチ のいずれか"},
+  label:{type:"STRING",description:"このシーンの短い名前（例：つかみ、定食A、まとめ）"},
+  sec:{type:"INTEGER",description:"目安の秒数"},
+  narration:{type:"STRING",description:"話す内容・ナレーションの要点"},
+  telop:{type:"STRING",description:"画面に出すテロップ案（短く）"},
+  visual:{type:"STRING",description:"画面・カメラ・映像の指示"},
+  bgm:{type:"STRING",description:"BGM/効果音の雰囲気"},
+  tips:{type:"STRING",description:"編集・演出のヒント（カット、間、テンポ等）"}
+},required:["part","label","sec","narration","telop","visual","bgm","tips"],
+ propertyOrdering:["part","label","sec","narration","telop","visual","bgm","tips"]};
+
+const THUMB_SCHEMA={type:"OBJECT",properties:{
+  catch:{type:"STRING",description:"サムネのメイン文言（大きく載せる短いコピー・最大12字程度）"},
+  sub:{type:"STRING",description:"サムネの補助文言（あれば・なければ空でよい）"},
+  style:{type:"STRING",description:"配色・レイアウト・表情/構図など見た目の指示"}
+},required:["catch","sub","style"],propertyOrdering:["catch","sub","style"]};
+
+const PLAN_SCHEMA={type:"OBJECT",properties:{
+  title:{type:"STRING",description:"視聴者が押したくなる動画タイトル案"},
+  logline:{type:"STRING",description:"どんな動画かを一文で"},
+  hook:{type:"STRING",description:"最初の数秒でのつかみのアドバイス"},
+  thumbnail:THUMB_SCHEMA,
+  scenes:{type:"ARRAY",items:SCENE_SCHEMA}
+},required:["title","logline","hook","thumbnail","scenes"],
+ propertyOrdering:["title","logline","hook","thumbnail","scenes"]};
+
+function hookRule(){
+  return hookOn
+    ? `- 【1秒フック強化】最初のシーン(part=導入)は「0〜1秒のフック」専用にする。labelは「フック(0-1秒)」、secは1〜2秒。冒頭で結論・数字・意外性・問いかけのどれかを一撃で出し、絶対に離脱させない。telopもその一撃を強く出す。`
+    : `- ${sel.plat==="short"?"縦型ショート向けに、最初の1秒で離脱させない構成にする。":"冒頭で結論・見どころを予告して視聴維持を狙う。"}`;
+}
+function thumbRule(){
+  return `- thumbnail はサムネイルのメイン文言(catch)・補助文言(sub)・見た目の指示(style)。catchは大きく載る短いコピー、styleは配色/構図/表情まで具体的に。`;
+}
+
+function buildPrompt(){
+  const plat=PLATFORMS.find(p=>p.k===sel.plat).label;
+  const lenLabel=LENS.find(l=>l.k===sel.len).label;
+
+  if(mode==="reverse"){
+    const tr=document.getElementById("transcript").value.trim();
+    return `あなたは経験豊富な動画編集者です。以下は既に撮影/収録された動画の「文字起こし」です。これを編集しやすい「構成表（絵コンテ）」に逆算して整理してください。
+
+# 文字起こし
+${tr}
+
+# 条件
+- プラットフォーム: ${plat}
+- トーン: ${sel.tone}
+
+# 指示
+- 発話の内容と流れに忠実に、意味のまとまりでシーンに区切る（勝手に内容を足さない。要約・整理はしてよい）。
+- part は各シーンを「導入」「本編」「オチ」のどれかに分類する。
+- sec は各シーンの発話量からおおよその尺を推定して入れる。
+- label はそのシーンの短い見出し。narration はそのシーンで話している要点。
+- telop はそこで画面に入れると良いテロップ案、visual は合いそうな画/カメラ/Bロール、tips はカット・テンポ・不要部分の削りどころなど編集のヒント。
+- title/logline/hook はこの動画に合うものを提案。${thumbRule().replace(/^- /,"")}
+${hookRule()}
+- 日本語で、実際に編集で使える具体度で書く。`;
+  }
+
+  const topic=document.getElementById("topic").value.trim();
+  return `あなたは経験豊富な動画ディレクター兼編集者です。以下の条件で、撮影・編集前の「設計図（絵コンテ）」を作ってください。
+
+# 条件
+- 内容/素材メモ: ${topic}
+- プラットフォーム: ${plat}
+- 目安の長さ: ${lenLabel}（合計秒数がこれに近くなるよう各シーンの秒を配分）
+- トーン: ${sel.tone}
+
+# 指示
+- 構成は「導入 → 本編（複数）→ オチ」の流れにする。partは必ず「導入」「本編」「オチ」のどれか。
+- シーン数は長さに合わせる（30秒なら3〜4、5分なら7〜10 程度が目安）。
+- 各シーンの sec を足すと目安の長さに近くなるようにする。
+- telop は実際に画面に出せる短いコピーにする。narration は要点だけ。
+- visual は撮り方/画づくり、tips はカット割り・間・テンポなど編集で効くコツを具体的に。
+${hookRule()}
+${thumbRule()}
+- 日本語で、実際に使える具体度で書く。`;
+}
+
+/* ---------- state / render ---------- */
+let plan=null, target=60;
+
+async function generate(){
+  if(mode==="reverse"){
+    if(!document.getElementById("transcript").value.trim()){toast("文字起こしを貼り付けてください");return;}
+  }else if(!document.getElementById("topic").value.trim()){
+    toast("まず①に内容メモを書いてください");return;
+  }
+  if(!getKey()){openKey();return;}
+  const btn=document.getElementById("genBtn");
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>'+(mode==="reverse"?"構成表に起こしています…":"設計図をつくっています…");
+  try{
+    plan=await callGemini(buildPrompt(),PLAN_SCHEMA);
+    plan.scenes=(plan.scenes||[]).map(s=>({...s,sec:+s.sec||0}));
+    // 逆算モードは目標尺が無いので合計を目標扱いにする
+    target=mode==="reverse" ? plan.scenes.reduce((a,s)=>a+(+s.sec||0),0) : sel.len;
+    renderPlan();
+    persist();
+    document.getElementById("result").style.display="block";
+    document.getElementById("result").scrollIntoView({behavior:"smooth",block:"start"});
+  }catch(e){toast(e.message||"生成に失敗しました",true);}
+  finally{btn.disabled=false;btn.innerHTML="✦ 設計図をつくる";}
+}
+function regen(){ if(confirm("いまの設計図を捨てて、別案を作り直しますか？")) generate(); }
+
+function partClass(p){ return p&&p.includes("導入")?"intro":p&&p.includes("オチ")?"out":"main"; }
+function partColor(p){ const c=partClass(p); return c==="intro"?"var(--p-intro)":c==="out"?"var(--p-out)":"var(--p-main)"; }
+
+function renderPlan(){
+  document.getElementById("rTitle").textContent=plan.title||"";
+  document.getElementById("rLog").textContent=plan.logline||"";
+  document.getElementById("rHook").textContent=plan.hook?("💡 "+plan.hook):"";
+  renderThumb();renderScenes();renderMeta();
+}
+function renderThumb(){
+  const t=plan.thumbnail||{};
+  document.getElementById("thCatch").textContent=t.catch||"";
+  const sub=document.getElementById("thSub");
+  sub.textContent=t.sub||""; sub.style.display=t.sub?"":"none";
+  document.getElementById("thStyle").textContent=t.style?("🎨 "+t.style):"";
+}
+function editThumb(k,v){ if(!plan.thumbnail)plan.thumbnail={};
+  plan.thumbnail[k]= k==="style"? v.replace(/^🎨\s*/,"") : v; persist(); }
+function renderMeta(){
+  const total=plan.scenes.reduce((a,s)=>a+(+s.sec||0),0);
+  const b=document.getElementById("rTotal");
+  b.innerHTML=`<b>${fmt(total)}</b><span>目標 ${fmt(target)}</span>`;
+  b.classList.toggle("over",total>target*1.25||total<target*0.6);
+  // timeline
+  const tl=document.getElementById("rTimeline");tl.innerHTML="";
+  const sum=total||1;
+  plan.scenes.forEach(s=>{
+    const seg=document.createElement("div");
+    seg.className="seg";seg.style.flex=(+s.sec||0)+" 0 0";seg.style.background=partColor(s.part);
+    seg.title=`${s.label}（${fmt(s.sec)}）`;
+    if((+s.sec||0)/sum>0.08) seg.textContent=s.label;
+    tl.appendChild(seg);
+  });
+}
+function fmt(sec){ sec=Math.round(sec); const m=Math.floor(sec/60),s=sec%60;
+  return m?`${m}:${String(s).padStart(2,"0")}`:`${s}秒`; }
+
+const FLD=[
+  {k:"narration",t:"内容・ナレ",i:"🎙"},
+  {k:"telop",t:"テロップ案",i:"🔤",cls:"telop"},
+  {k:"visual",t:"画面・カメラ",i:"🎬"},
+  {k:"bgm",t:"BGM・音",i:"🎵"}
+];
+function renderScenes(){
+  const wrap=document.getElementById("scenes");wrap.innerHTML="";
+  plan.scenes.forEach((s,idx)=>{
+    const el=document.createElement("div");el.className="scene";
+    const pc=partClass(s.part);
+    let body="";
+    FLD.forEach(f=>{
+      body+=`<div class="fld ${f.cls||''}"><div class="k"><i>${f.i}</i>${f.t}</div>
+        <div class="v" contenteditable="true" spellcheck="false"
+        oninput="edit(${idx},'${f.k}',this.textContent)">${esc(s[f.k]||"")}</div></div>`;
+    });
+    body+=`<div class="fld wide"><div class="k"><i>✂️</i>編集のヒント</div>
+      <div class="v" contenteditable="true" spellcheck="false"
+      oninput="edit(${idx},'tips',this.textContent)">${esc(s.tips||"")}</div></div>`;
+    el.innerHTML=`
+      <div class="scene-head">
+        <span class="pt ${pc}">${esc(s.part||"本編")}</span>
+        <span class="nm" contenteditable="true" spellcheck="false"
+          oninput="edit(${idx},'label',this.textContent)">${esc(s.label||"")}</span>
+        <div class="sec-edit"><input type="number" min="0" value="${+s.sec||0}"
+          oninput="editSec(${idx},this.value)"><span>秒</span></div>
+        <button class="mv" title="上へ" onclick="move(${idx},-1)">▲</button>
+        <button class="mv" title="下へ" onclick="move(${idx},1)">▼</button>
+        <button class="mv" title="削除" onclick="del(${idx})">✕</button>
+      </div>
+      <div class="scene-body">${body}</div>`;
+    wrap.appendChild(el);
+  });
+}
+function edit(i,k,v){ plan.scenes[i][k]=v; persist(); if(k==="label")renderMeta(); }
+function editSec(i,v){ plan.scenes[i].sec=+v||0; renderMeta(); persist(); }
+function move(i,d){ const j=i+d; if(j<0||j>=plan.scenes.length)return;
+  [plan.scenes[i],plan.scenes[j]]=[plan.scenes[j],plan.scenes[i]]; renderScenes();renderMeta();persist(); }
+function del(i){ if(plan.scenes.length<=1){toast("最後の1つは消せません");return;}
+  plan.scenes.splice(i,1); renderScenes();renderMeta();persist(); }
+function addScene(){ plan.scenes.push({part:"本編",label:"新しいシーン",sec:15,
+  narration:"",telop:"",visual:"",bgm:"",tips:""}); renderScenes();renderMeta();persist();
+  window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}); }
+
+/* title/logline edits */
+document.getElementById("rTitle").addEventListener("input",e=>{if(plan){plan.title=e.target.textContent;persist();}});
+document.getElementById("rLog").addEventListener("input",e=>{if(plan){plan.logline=e.target.textContent;persist();}});
+
+/* ---------- export ---------- */
+function copyMd(){
+  if(!plan)return;
+  const total=plan.scenes.reduce((a,s)=>a+(+s.sec||0),0);
+  let md=`# ${plan.title}\n\n> ${plan.logline}\n\n`;
+  md+=`**合計 ${fmt(total)}（目標 ${fmt(target)}）** ／ つかみ：${plan.hook}\n\n`;
+  const th=plan.thumbnail;
+  if(th){ md+=`**🖼 サムネ文言**：${th.catch}${th.sub?" ／ "+th.sub:""}\n`;
+    if(th.style)md+=`（見た目：${th.style}）\n`; md+=`\n`; }
+  md+=`| # | 区分 | シーン | 尺 | テロップ |\n|--|--|--|--|--|\n`;
+  plan.scenes.forEach((s,i)=>{md+=`| ${i+1} | ${s.part} | ${s.label} | ${fmt(s.sec)} | ${(s.telop||"").replace(/\n/g," ")} |\n`;});
+  md+=`\n---\n`;
+  plan.scenes.forEach((s,i)=>{
+    md+=`\n### ${i+1}. ${s.label}（${s.part}・${fmt(s.sec)}）\n`;
+    md+=`- 🎙 内容：${s.narration}\n- 🔤 テロップ：${s.telop}\n- 🎬 画面：${s.visual}\n- 🎵 音：${s.bgm}\n- ✂️ 編集：${s.tips}\n`;
+  });
+  navigator.clipboard.writeText(md).then(()=>toast("Markdownをコピーしました"),()=>toast("コピーに失敗しました",true));
+}
+
+/* ---------- persist ---------- */
+function persist(){ save(LS_STATE,{plan,target,sel,mode,hookOn,
+  topic:document.getElementById("topic").value,
+  transcript:document.getElementById("transcript").value}); }
+function restore(){
+  const st=load(LS_STATE,null); if(!st)return;
+  if(st.sel)sel=st.sel;
+  if(st.topic)document.getElementById("topic").value=st.topic;
+  if(st.transcript)document.getElementById("transcript").value=st.transcript;
+  if(typeof st.hookOn==="boolean"){ hookOn=st.hookOn;
+    document.getElementById("hookToggle").classList.toggle("on",hookOn); }
+  renderChips();
+  if(st.mode) setMode(st.mode);
+  if(st.plan){ plan=st.plan; target=st.target||60; renderPlan();
+    document.getElementById("result").style.display="block"; }
+}
+
+/* ---------- key modal ---------- */
+function openKey(){ document.getElementById("keyInput").value=getKey();
+  document.getElementById("modelSelect").value=MODEL;
+  document.getElementById("keyModal").classList.add("open"); }
+function closeKey(){ document.getElementById("keyModal").classList.remove("open"); }
+function saveKey(){
+  const k=document.getElementById("keyInput").value.trim();
+  if(k)localStorage.setItem(LS_KEY,k); else localStorage.removeItem(LS_KEY);
+  MODEL=document.getElementById("modelSelect").value; localStorage.setItem(LS_MODEL,MODEL);
+  closeKey(); toast(k?"保存しました":"キーを消去しました");
+}
+
+/* ---------- util ---------- */
+function esc(s){ return String(s??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+let toastT;
+function toast(msg,err){ const t=document.getElementById("toast");
+  t.textContent=msg;t.className="toast show"+(err?" err":"");
+  clearTimeout(toastT);toastT=setTimeout(()=>t.className="toast"+(err?" err":""),err?4200:2200); }
+
+/* ---------- boot ---------- */
+restore();
+if(!getKey()) setTimeout(openKey,400);
+</script>
+</body>
+</html>
