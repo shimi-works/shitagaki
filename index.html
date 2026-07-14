@@ -266,9 +266,10 @@
       <p class="lead">雑学・ニュース系の<b>ボイロ解説（ゆっくり/VOICEROID）</b>向けに、テーマから<b>2キャラの掛け合い台本</b>を生成します。読み上げにそのまま使えるセリフ全文＋テロップ付き。</p>
       <label class="f">① テーマ・扱う内容</label>
       <textarea id="voroTopic" placeholder="例：なぜ空は青いのか。雑学的に、身近な例えを交えて。／ 例：先週の○○のニュースをわかりやすく解説。"></textarea>
-      <div class="chips" id="tasteChips" style="margin-top:4px"></div>
+      <div class="chips" id="srcChips" style="margin-top:4px"></div>
+      <div class="chips" id="tasteChips" style="margin-top:8px"></div>
       <button class="trendbtn" id="trendBtn" onclick="fetchTrends()">🔥 いま話題のことを取得（ネタ探し）</button>
-      <p class="trendnote">AIがWeb検索で集めた「ここ1〜2日で話題の話」を出します（X・5ch/なんJ・まとめ・Yahooなど）。🕒バッジがいつの話題か・新しい順。<b>検索連携の都合で厳密な当日保証はできず、古い話が混じることも</b>。公式トレンドそのものではなく鮮度・正確性は要確認、噂系は裏取り必須。</p>
+      <p class="trendnote"><b>Yahoo</b>＝公式RSSから配信時刻つきの最新ニュース（CORS回避に外部プロキシ経由）。<b>AI検索</b>＝X/5ch/まとめ含むが鮮度は甘め。🕒バッジがいつの話題か・新しい順。事実/噂の裏取りは必須。</p>
       <div class="trendlist" id="trendList"></div>
 
       <label class="f">② ジャンル</label>
@@ -416,6 +417,12 @@ const TASTES=[
   {k:"news",  label:"📰王道ニュース"}
 ];
 let trendTaste="buzz";
+const TREND_SRCS=[
+  {k:"both",  label:"🔀 両方"},
+  {k:"yahoo", label:"📰 Yahoo（最新）"},
+  {k:"ai",    label:"🔎 AI検索"}
+];
+let trendSrc="both";
 const CHAR_PRESETS=[
   {k:"metan",  label:"めたん & ずんだもん",   tName:"四国めたん", tStyle:"落ち着いた先生口調・丁寧に噛み砕いて教える",
     sName:"ずんだもん", sStyle:"素朴で元気・語尾が「〜のだ」・驚きや相づち多め"},
@@ -489,6 +496,7 @@ function renderChips(){
   chips("genreChips",GENRES,()=>voroGenre,pickGenre,x=>x,x=>x);
   chips("charPresetChips",CHAR_PRESETS,()=>charPreset,selectCharPreset,x=>x.k,x=>x.label);
   chips("tasteChips",TASTES,()=>trendTaste,v=>{trendTaste=v;renderChips();persist();},x=>x.k,x=>x.label);
+  chips("srcChips",TREND_SRCS,()=>trendSrc,v=>{trendSrc=v;renderChips();persist();},x=>x.k,x=>x.label);
 }
 renderChips();
 
@@ -577,6 +585,19 @@ function freshRank(w){ w=String(w||"");
   if(/\d{1,2}\s*\/\s*\d{1,2}|\d{1,2}月\d{1,2}日|日前/.test(w))return 2;
   return 3;   // 時期不明は後ろへ
 }
+function sameYMD(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
+function whenLabel(d){
+  const now=new Date();
+  if(sameYMD(now,d)) return "本日";
+  const y=new Date(now.getTime()-86400000);
+  if(sameYMD(y,d)) return "昨日";
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+// 新しいほど小さい値。Yahooは実配信時刻(_daysAgo)、AIはwhenから近似
+function recencyScore(t){
+  if(typeof t._daysAgo==="number") return t._daysAgo;
+  const r=freshRank(t.when); return r===0?0.5:r===1?1.5:r===2?2.5:9;
+}
 function extractJsonArray(text){
   let t=String(text).replace(/```json/gi,"```").replace(/```/g,"");
   const s=t.indexOf("["), e=t.lastIndexOf("]");
@@ -586,19 +607,17 @@ function extractJsonArray(text){
 
 /* ---------- トレンド取得 ---------- */
 let trends=[];
-async function fetchTrends(){
-  if(!getKey()){openKey();return;}
-  const btn=document.getElementById("trendBtn");
-  btn.disabled=true; btn.innerHTML='<span class="spin"></span>話題を検索中…';
-  try{
-    const tasteRule={
-      buzz:"いま SNS（X）・5ch/なんJ・まとめ・ネットで“バズっている”、思わずクリックしたくなる話題を優先。硬い政治経済ニュースは避け、意外・衝撃・感情が動く「気になって続きを見たくなる」ネタを中心に。",
-      hee:"意外で「へぇ！」となる雑学・トリビア・豆知識中心。日常の疑問、体・食べ物・science系の面白い話など、ネタとして映える意外性のあるもの。",
-      gossip:"芸能・ネット・炎上・○○の裏側・噂・都市伝説など、話のタネになる俗っぽい話題中心。ただし実在の個人への誹謗中傷、未確認のプライバシー暴露、明確なデマは含めない。",
-      news:"最近のニュースで、解説動画にすると伸びそうな注目度の高いものを中心に。"
-    }[trendTaste]||"";
-    const t=todayInfo();
-    const prompt=`YouTubeの雑学/解説動画のネタ探しです。今日は ${t.today}。
+
+// AI検索（Geminiグラウンディング）
+async function fetchAiTrends(){
+  const tasteRule={
+    buzz:"いま SNS（X）・5ch/なんJ・まとめ・ネットで“バズっている”、思わずクリックしたくなる話題を優先。硬い政治経済ニュースは避け、意外・衝撃・感情が動く「気になって続きを見たくなる」ネタを中心に。",
+    hee:"意外で「へぇ！」となる雑学・トリビア・豆知識中心。日常の疑問、体・食べ物・science系の面白い話など、ネタとして映える意外性のあるもの。",
+    gossip:"芸能・ネット・炎上・○○の裏側・噂・都市伝説など、話のタネになる俗っぽい話題中心。ただし実在の個人への誹謗中傷、未確認のプライバシー暴露、明確なデマは含めない。",
+    news:"最近のニュースで、解説動画にすると伸びそうな注目度の高いものを中心に。"
+  }[trendTaste]||"";
+  const t=todayInfo();
+  const prompt=`YouTubeの雑学/解説動画のネタ探しです。今日は ${t.today}。
 最重要: **${t.cutoff} 以降に報じられた/投稿された、ここ1〜2日の「新しい」話題だけ**を厳選してください。数週間前のまとめ・時期が古いもの・いつの話か不明なものは絶対に入れない。新しいものが少なければ件数は5件未満でも構わない。
 情報源: X（旧Twitter）・5ch/なんJ・まとめ・Yahoo!ニュースなど、直近で盛り上がっているもの。
 方針: ${tasteRule}
@@ -606,11 +625,70 @@ async function fetchTrends(){
 次のJSON配列だけを出力（前後に説明文やコードフェンスを付けない）:
 [{"title":"引きのある短い見出し","summary":"どんな話題か1〜2文","when":"いつの話題か（例: 本日 / 昨日 / ${t.md}）","genre":"雑学|ニュース|ゴシップ|その他","source":"X|5ch|まとめ|Yahoo|ネット"}]
 確認しづらいものは summary で「〜という噂」等と正直に書く。実在の個人を貶める内容や違法・過度に露悪的な内容は避ける。`;
-    const text=await callGeminiGrounded(prompt,3000);
-    const arr=extractJsonArray(text);
-    if(!arr||!arr.length) throw new Error("話題をうまく取得できませんでした。もう一度試してください。");
-    trends=arr.sort((a,b)=>freshRank(a.when)-freshRank(b.when)).slice(0,10); renderTrends(); persist();
-    toast(`${trends.length}件の話題を取得しました`);
+  const text=await callGeminiGrounded(prompt,3000);
+  const arr=extractJsonArray(text);
+  if(!arr||!arr.length) throw new Error("AI検索でうまく取得できませんでした");
+  return arr;
+}
+
+// Yahoo!ニュース RSS（公式・配信時刻つき）。CORS回避に軽量プロキシを経由
+const YAHOO_FEEDS={ "top-picks":"ニュース", domestic:"ニュース", world:"ニュース",
+  business:"ニュース", entertainment:"ゴシップ", sports:"ニュース", it:"雑学", science:"雑学" };
+function yahooCatsForTaste(){
+  return {
+    buzz:["entertainment","sports","it","science","top-picks"],
+    hee:["science","it"],
+    gossip:["entertainment"],
+    news:["top-picks","domestic","world","business"]
+  }[trendTaste]||["top-picks"];
+}
+function parseYahooXml(xml,cat){
+  const doc=new DOMParser().parseFromString(xml,"text/xml");
+  const out=[];
+  [...doc.getElementsByTagName("item")].slice(0,6).forEach(it=>{
+    const g=t=>it.getElementsByTagName(t)[0]?.textContent?.trim()||"";
+    const title=g("title"); if(!title)return;
+    const pub=g("pubDate"); const d=pub?new Date(pub):null;
+    const o={title,summary:g("description"),genre:YAHOO_FEEDS[cat]||"ニュース",source:"Yahoo"};
+    if(d && !isNaN(d.getTime())){ o._daysAgo=(new Date()-d)/86400000; o.when=whenLabel(d); }
+    out.push(o);
+  });
+  return out;
+}
+async function fetchYahoo(){
+  const cats=yahooCatsForTaste();
+  const proxy=u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`;
+  const out=[]; let ok=0;
+  for(const c of cats){
+    try{
+      const res=await fetch(proxy(`https://news.yahoo.co.jp/rss/topics/${c}.xml`));
+      if(!res.ok) continue;
+      out.push(...parseYahooXml(await res.text(),c)); ok++;
+    }catch(_){ /* このフィードはスキップ */ }
+  }
+  if(!ok) throw new Error("Yahooの取得に失敗（プロキシ不調かも）");
+  return out;
+}
+
+function dedupeTrends(items){
+  const seen=new Set(), out=[];
+  items.forEach(t=>{ const k=(t.title||"").replace(/\s/g,"").slice(0,14);
+    if(k&&!seen.has(k)){ seen.add(k); out.push(t); } });
+  return out;
+}
+async function fetchTrends(){
+  if(trendSrc!=="yahoo" && !getKey()){ openKey(); return; }  // AI検索はキー必須
+  const btn=document.getElementById("trendBtn");
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span>話題を集めています…';
+  try{
+    let items=[]; const errs=[];
+    if(trendSrc!=="yahoo"){ try{ items=items.concat(await fetchAiTrends()); }catch(e){ errs.push("AI検索: "+e.message); } }
+    if(trendSrc!=="ai"){   try{ items=items.concat(await fetchYahoo());    }catch(e){ errs.push(e.message); } }
+    items=dedupeTrends(items);
+    if(!items.length) throw new Error(errs.join(" / ")||"話題を取得できませんでした");
+    trends=items.sort((a,b)=>recencyScore(a)-recencyScore(b)).slice(0,10);
+    renderTrends(); persist();
+    toast(`${trends.length}件を取得${errs.length?"（一部失敗）":""}`);
   }catch(e){ toast(e.message||"取得に失敗しました",true); }
   finally{ btn.disabled=false; btn.textContent="🔥 いま話題のことを取得（ネタ探し）"; }
 }
@@ -976,7 +1054,7 @@ function copyMd(){
 const VORO_INPUTS=["voroTopic","charTName","charTStyle","charSName","charSStyle"];
 function persist(){
   const v={}; VORO_INPUTS.forEach(id=>v[id]=document.getElementById(id).value);
-  save(LS_STATE,{plan,target,sel,mode,hookOn,voroGenre,charPreset,trendTaste,trends,voro:v,
+  save(LS_STATE,{plan,target,sel,mode,hookOn,voroGenre,charPreset,trendTaste,trendSrc,trends,voro:v,
     topic:document.getElementById("topic").value,
     transcript:document.getElementById("transcript").value});
 }
@@ -986,6 +1064,7 @@ function restore(){
   if(st.sel)sel=st.sel;
   if(st.voroGenre)voroGenre=st.voroGenre;
   if(st.trendTaste)trendTaste=st.trendTaste;
+  if(st.trendSrc)trendSrc=st.trendSrc;
   if(st.topic)document.getElementById("topic").value=st.topic;
   if(st.transcript)document.getElementById("transcript").value=st.transcript;
   if(st.voro)VORO_INPUTS.forEach(id=>{if(st.voro[id]!=null)document.getElementById(id).value=st.voro[id];});
